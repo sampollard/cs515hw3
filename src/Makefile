@@ -1,6 +1,5 @@
 CC = gcc
 UPCC = upcc
-
 KMER_LENGTH 		= 19
 KMER_PACKED_LENGTH 	= $(shell echo $$((($(KMER_LENGTH)+3)/4)))
 
