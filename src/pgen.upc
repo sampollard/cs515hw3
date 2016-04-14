@@ -9,11 +9,19 @@
 #include "packingDNAseq.h"
 #include "kmer_hash.h"
 
+/** Shared Variable Declarations **/
+// Use THREADS block size (the largest possible)
 
 int main(int argc, char *argv[]){
 
-	/** Declarations **/
+	/** Local Variable Declarations **/
 	double inputTime=0.0, constrTime=0.0, traversalTime=0.0;
+    /* Local Variables for reading in files */
+    FILE *inputFile;
+    char *input_UFX_name;
+    int64_t nKmers, total_chars_to_read, cur_chars_read;
+    unsigned char *working_buffer;
+    // TODO: FILE *outputFile: One file or multiple?
 
 	/** Read input **/
 	upc_barrier;
@@ -21,6 +29,29 @@ int main(int argc, char *argv[]){
 	///////////////////////////////////////////
 	// Your code for input file reading here //
 	///////////////////////////////////////////
+    input_UFX_name = argv[1];
+    /* Figure out how many lines of the file each thread is responsible for */
+    nKmers = getNumKmersInUFX(input_UFX_name);
+
+    // TEST
+    if (MYTHREAD == 0) {
+        printf("Total nKmers = %d\n", nKmers);
+    }
+
+    if (MYTHREAD % THREADS == THREADS - 1) {
+        // The last thread may need to pick up the stragglers
+        nKmers = nKmers - (THREADS-1)*(nKmers/THREADS);
+    } else {
+        nKmers /= THREADS;
+    }
+    printf("Thread %d reading in %d kmers\n", MYTHREAD, nKmers); // TEST
+
+    total_chars_to_read = nKmers * LINE_SIZE;
+    working_buffer = (unsigned char*) malloc(total_chars_to_read * sizeof(unsigned char));
+    inputFile = fopen(input_UFX_name, "r");
+    cur_chars_read = fread(working_buffer, sizeof(unsigned char),total_chars_to_read , inputFile);
+    fclose(inputFile);
+
 	upc_barrier;
 	inputTime += gettime();
 
