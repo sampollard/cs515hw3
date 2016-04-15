@@ -11,6 +11,7 @@
 
 /** Shared Variable Declarations **/
 // Use THREADS block size (the largest possible)
+shared memory_heap_t memory_heap; // We want upc_all_alloc?
 
 int main(int argc, char *argv[]){
 
@@ -49,7 +50,7 @@ int main(int argc, char *argv[]){
     total_chars_to_read = nKmers * LINE_SIZE;
     working_buffer = (unsigned char*) malloc(total_chars_to_read * sizeof(unsigned char));
     inputFile = fopen(input_UFX_name, "r");
-    cur_chars_read = fread(working_buffer, sizeof(unsigned char),total_chars_to_read , inputFile);
+    cur_chars_read = fread(working_buffer, sizeof(unsigned char), total_chars_to_read , inputFile);
     fclose(inputFile);
 
 	upc_barrier;
@@ -60,6 +61,8 @@ int main(int argc, char *argv[]){
 	///////////////////////////////////////////
 	// Your code for graph construction here //
 	///////////////////////////////////////////
+    // Collectively create the hash table
+    hashtable = upc_create_hash_table(nKmers, &memory_heap);
 	upc_barrier;
 	constrTime += gettime();
 

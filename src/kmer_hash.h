@@ -33,6 +33,33 @@ hash_table_t* create_hash_table(int64_t nEntries, memory_heap_t *memory_heap)
    return result;
 }
 
+/* Creates a hash table and (pre)allocates memory for the memory heap */
+hash_table_t* upc_create_hash_table(int64_t nEntries, memory_heap_t *memory_heap)
+{
+   hash_table_t *result;
+   int64_t n_buckets = nEntries * LOAD_FACTOR;
+
+   // Each process gets its own pointer to its own chunk of the hash table
+   result = (hash_table_t*) malloc(sizeof(hash_table_t));
+   result->size = n_buckets;
+   // There is only one table spread across all processes
+   result->table = (bucket_t*) upc_all_alloc(n_buckets, sizeof(bucket_t));
+   
+   if (result->table == NULL) {
+      fprintf(stderr, "ERROR: Could not allocate memory for the hash table: %lld buckets of %lu bytes\n", n_buckets, sizeof(bucket_t));
+      exit(1);
+   }
+   
+   // Just as with table, all processes can access the heap
+   memory_heap->heap = (kmer_t *) upc_alloc(((nEntries/THREADS)+1) * sizeof(kmer_t));
+   if (memory_heap->heap == NULL) {
+      fprintf(stderr, "ERROR: Could not allocate memory for the heap!\n");
+      exit(1);
+   }
+   memory_heap->posInHeap = 0;
+   
+   return result;
+}
 /* Auxiliary function for computing hash values */
 int64_t hashseq(int64_t  hashtable_size, char *seq, int size)
 {
