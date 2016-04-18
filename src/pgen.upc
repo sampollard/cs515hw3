@@ -10,18 +10,18 @@
 #include "upc_kmer_hash.h"
 
 /** Shared Variable Declarations **/
-// Use THREADS block size (the largest possible)
+// IDEA: Use THREADS block size (the largest possible)
+// Quick reference card: http://upc.gwu.edu/downloads/quick_ref04.pdf
 
 int main(int argc, char *argv[]){
 
 	/** Local Variable Declarations **/
 	double inputTime=0.0, constrTime=0.0, traversalTime=0.0;
     /* Local Variables for file IO */
-    FILE *inputFile;
+    FILE *inputFile, *outputFile;
     char *input_UFX_name;
     int64_t nKmers, total_chars_to_read, cur_chars_read;
     unsigned char *working_buffer;
-    // TODO: FILE *outputFile: One file or multiple?
     /* Local Variables for Graph Construction */
     hash_table_t *hashtable;   // The buckets (hashtable->table) are shared
     memory_heap_t memory_heap; // The heap is shared, the posInHeap is local.
@@ -89,6 +89,8 @@ int main(int argc, char *argv[]){
         /* Move to the next k-mer in the input working_buffer */
         ptr += LINE_SIZE;
     }
+    
+    // TODO: Maybe test up to this point? How would we do this?
 
 	/** Graph traversal **/
 	traversalTime -= gettime();
@@ -97,6 +99,43 @@ int main(int argc, char *argv[]){
 	// Save your output to "pgen.out"                         //
 	////////////////////////////////////////////////////////////
 	upc_barrier;
+    char filename[255];
+    sprintf(filename, "pgen%d.out", MYTHREAD);
+    outputFile = fopen(filename, "w");
+ 
+    /* Pick start nodes from the startKmersList */
+    start_kmer_t *curStartNode = startKmersList; 
+    kmer_t cur_kmer;
+    while (curStartNode != NULL ) {
+        /* Need to transfer the current kmer start node from shared to local */
+        upc_memget(&cur_kmer, curStartNode->kmerPtr, sizeof(kmer_t));
+        // Get cur_kmer to local memory
+        unpackSequence((unsigned char*) cur_kmer,  (unsigned char*) unpackedKmer, KMER_LENGTH);
+        /* Initialize current contig with the seed content */
+        memcpy(cur_contig ,unpackedKmer, KMER_LENGTH * sizeof(char));
+        posInContig = KMER_LENGTH;
+        right_ext = cur_kmer.r_ext;
+ 
+        /* Keep adding bases while not finding a terminal node */
+        while (right_ext != 'F') {
+           cur_contig[posInContig] = right_ext;
+           posInContig++;
+           /* At position cur_contig[posInContig-KMER_LENGTH] starts the last k-mer in the current contig */
+            // TODO: We need to make sure the cur_kmer_ptr is a shared pointer
+           cur_kmer_ptr = lookup_kmer(hashtable, (const unsigned char *) &cur_contig[posInContig-KMER_LENGTH]);
+           right_ext = cur_kmer.r_ext;
+        }
+ 
+        /* Print the contig since we have found the corresponding terminal node */
+        cur_contig[posInContig] = '\0';
+        fprintf(outputFile,"%s\n", cur_contig);
+        contigID++;
+        totBases += strlen(cur_contig);
+        /* Move to the next start node in the list */
+        curStartNode = curStartNode->next;
+    }
+ 
+    fclose(serialOutputFile);
 	traversalTime += gettime();
 
 	/** Print timing and output info **/
