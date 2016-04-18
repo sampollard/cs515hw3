@@ -7,22 +7,24 @@
 #include <upc.h>
 
 #include "packingDNAseq.h"
-#include "kmer_hash.h"
+#include "upc_kmer_hash.h"
 
 /** Shared Variable Declarations **/
 // Use THREADS block size (the largest possible)
-shared memory_heap_t memory_heap; // We want upc_all_alloc?
 
 int main(int argc, char *argv[]){
 
 	/** Local Variable Declarations **/
 	double inputTime=0.0, constrTime=0.0, traversalTime=0.0;
-    /* Local Variables for reading in files */
+    /* Local Variables for file IO */
     FILE *inputFile;
     char *input_UFX_name;
     int64_t nKmers, total_chars_to_read, cur_chars_read;
     unsigned char *working_buffer;
     // TODO: FILE *outputFile: One file or multiple?
+    /* Local Variables for Graph Construction */
+    hash_table_t *hashtable;   // The buckets (hashtable->table) are shared
+    memory_heap_t memory_heap; // The heap is shared, the posInHeap is local.
 
 	/** Read input **/
 	upc_barrier;
@@ -65,6 +67,28 @@ int main(int argc, char *argv[]){
     hashtable = upc_create_hash_table(nKmers, &memory_heap);
 	upc_barrier;
 	constrTime += gettime();
+    int64_t ptr = 0;
+    char left_ext, right_ext;
+    start_kmer_t *startKmersList = NULL;
+    while (ptr < cur_chars_read) {
+        /* working_buffer[ptr] is the start of the current k-mer                */
+        /* so current left extension is at working_buffer[ptr+KMER_LENGTH+1]    */
+        /* and current right extension is at working_buffer[ptr+KMER_LENGTH+2]  */
+ 
+        left_ext = (char) working_buffer[ptr+KMER_LENGTH+1];
+        right_ext = (char) working_buffer[ptr+KMER_LENGTH+2];
+ 
+        /* Add k-mer to hash table */
+        add_kmer(hashtable, &memory_heap, &working_buffer[ptr], left_ext, right_ext);
+ 
+        /* Create also a list with the "start" kmers: nodes with F as left (backward) extension */
+        if (left_ext == 'F') {
+            addKmerToStartList(&memory_heap, &startKmersList);
+        }
+ 
+        /* Move to the next k-mer in the input working_buffer */
+        ptr += LINE_SIZE;
+    }
 
 	/** Graph traversal **/
 	traversalTime -= gettime();
