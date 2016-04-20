@@ -60,7 +60,7 @@ struct start_kmer_t{
 /* Bucket data structure */
 typedef struct bucket_t bucket_t;
 struct bucket_t{
-   kmer_t *head;          // Pointer to the first entry of that bucket
+   shared kmer_t *head;          // Pointer to the first entry of that bucket
 };
 
 /* Hash table data structure */
@@ -167,24 +167,30 @@ int64_t hashkmer(int64_t  hashtable_size, char *seq)
 }
 
 /* Looks up a kmer in the hash table and returns a pointer to that entry */
-kmer_t* lookup_kmer(hash_table_t *hashtable, const unsigned char *kmer)
+kmer_t lookup_kmer(hash_table_t *hashtable, const unsigned char *kmer)
 {
    char packedKmer[KMER_PACKED_LENGTH];
    packSequence(kmer, (unsigned char*) packedKmer, KMER_LENGTH);
    int64_t hashval = hashkmer(hashtable->size, (char*) packedKmer);
    bucket_t cur_bucket;
-   kmer_t *result;
+   kmer_t result;
+   static shared kmer_t *result_ptr;
    
+   // hashtable->table is a shared object
    cur_bucket = hashtable->table[hashval];
-   result = cur_bucket.head;
+   result_ptr = cur_bucket.head;
+   upc_memget(&result, result_ptr, sizeof(kmer_t));
    
-   for (; result!=NULL; ) {
-      if ( memcmp(packedKmer, result->kmer, KMER_PACKED_LENGTH * sizeof(char)) == 0 ) {
+   /* Get the kmer from the heap and copy it to local memory */
+   for (; result_ptr!=NULL; ) {
+      if ( memcmp(packedKmer, result.kmer, KMER_PACKED_LENGTH * sizeof(char)) == 0 ) {
          return result;
       }
-      result = result->next;
+      result_ptr = result_ptr->next;
+      upc_memget(&result, result_ptr, sizeof(kmer_t));
    }
-   return NULL;
+   // This is never checked for in pgen.upc or serial.c
+   return result;
 }
 
 /* Adds a kmer and its extensions in the hash table (note that a memory heap should be preallocated. ) */

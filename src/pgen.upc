@@ -12,6 +12,7 @@
 /** Shared Variable Declarations **/
 // IDEA: Use THREADS block size (the largest possible)
 // Quick reference card: http://upc.gwu.edu/downloads/quick_ref04.pdf
+shared kmer_t *cur_kmer_ptr;  // Used when building contigs
 
 int main(int argc, char *argv[]){
 
@@ -43,7 +44,8 @@ int main(int argc, char *argv[]){
 
     if (MYTHREAD % THREADS == THREADS - 1) {
         // The last thread may need to pick up the stragglers
-        nKmers = nKmers - (THREADS-1)*(nKmers/THREADS);
+        // This may give a lot of extra work to the last thread if THREADS is large.
+        nKmers = (nKmers / THREADS) + (nKmers % THREADS);
     } else {
         nKmers /= THREADS;
     }
@@ -52,6 +54,8 @@ int main(int argc, char *argv[]){
     total_chars_to_read = nKmers * LINE_SIZE;
     working_buffer = (unsigned char*) malloc(total_chars_to_read * sizeof(unsigned char));
     inputFile = fopen(input_UFX_name, "r");
+    // Seek into the correct offset
+    fseek(inputFile, MYTHREAD*total_chars_to_read, SEEK_SET);
     cur_chars_read = fread(working_buffer, sizeof(unsigned char), total_chars_to_read , inputFile);
     fclose(inputFile);
 
@@ -106,11 +110,14 @@ int main(int argc, char *argv[]){
     /* Pick start nodes from the startKmersList */
     start_kmer_t *curStartNode = startKmersList; 
     kmer_t cur_kmer;
+    char cur_contig[MAXIMUM_CONTIG_SIZE], unpackedKmer[KMER_LENGTH+1];
+    int64_t posInContig;
+    int64_t contigID = 0;
     while (curStartNode != NULL ) {
         /* Need to transfer the current kmer start node from shared to local */
         upc_memget(&cur_kmer, curStartNode->kmerPtr, sizeof(kmer_t));
         // Get cur_kmer to local memory
-        unpackSequence((unsigned char*) cur_kmer,  (unsigned char*) unpackedKmer, KMER_LENGTH);
+        unpackSequence((unsigned char*) &cur_kmer,  (unsigned char*) unpackedKmer, KMER_LENGTH);
         /* Initialize current contig with the seed content */
         memcpy(cur_contig ,unpackedKmer, KMER_LENGTH * sizeof(char));
         posInContig = KMER_LENGTH;
@@ -122,7 +129,7 @@ int main(int argc, char *argv[]){
            posInContig++;
            /* At position cur_contig[posInContig-KMER_LENGTH] starts the last k-mer in the current contig */
             // TODO: We need to make sure the cur_kmer_ptr is a shared pointer
-           cur_kmer_ptr = lookup_kmer(hashtable, (const unsigned char *) &cur_contig[posInContig-KMER_LENGTH]);
+           cur_kmer = lookup_kmer(hashtable, (const unsigned char *) &cur_contig[posInContig-KMER_LENGTH]);
            right_ext = cur_kmer.r_ext;
         }
  
