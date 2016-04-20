@@ -23,6 +23,7 @@ int main(int argc, char *argv[]){
     FILE *inputFile, *outputFile;
     char *input_UFX_name;
     int64_t nKmers, total_chars_to_read, cur_chars_read;
+    int64_t seek_pos = 0;
     unsigned char *working_buffer;
     /* Local Variables for Graph Construction */
     hash_table_t *hashtable;   // The buckets (hashtable->table) are shared
@@ -43,6 +44,7 @@ int main(int argc, char *argv[]){
         printf("Total nKmers = %d\n", nKmers);
     }
 
+    seek_pos = nKmers / THREADS;
     if (MYTHREAD % THREADS == THREADS - 1) {
         // The last thread may need to pick up the stragglers
         // This may give a lot of extra work to the last thread if THREADS is large.
@@ -51,7 +53,6 @@ int main(int argc, char *argv[]){
         nKmers /= THREADS;
     }
     printf("Thread %d reading in %d kmers\n", MYTHREAD, nKmers); // TEST
-
     total_chars_to_read = nKmers * LINE_SIZE;
     working_buffer = (unsigned char*) malloc(total_chars_to_read * sizeof(unsigned char));
     inputFile = fopen(input_UFX_name, "r");
@@ -59,8 +60,8 @@ int main(int argc, char *argv[]){
         perror("When reading inputFile ");
     }
     // Seek into the correct offset
-    fseek(inputFile, MYTHREAD*total_chars_to_read, SEEK_SET);
-    cur_chars_read = fread(working_buffer, sizeof(unsigned char), total_chars_to_read , inputFile);
+    fseek(inputFile, MYTHREAD*seek_pos, SEEK_SET);
+    cur_chars_read = fread(working_buffer, sizeof(unsigned char), total_chars_to_read, inputFile);
     if (cur_chars_read != total_chars_to_read) {
         printf("%d read, expected %d on thread %d\n", cur_chars_read, total_chars_to_read, MYTHREAD);
         exit(1);
@@ -76,12 +77,14 @@ int main(int argc, char *argv[]){
 	// Your code for graph construction here //
 	///////////////////////////////////////////
     // Collectively create the hash table
+    printf("Initializing hash table...\n");
     hashtable = upc_create_hash_table(nKmers, &memory_heap);
 	upc_barrier;
 	constrTime += gettime();
     int64_t ptr = 0;
     char left_ext, right_ext;
     start_kmer_t *startKmersList = NULL;
+    printf("Creating hash table...\n");
     while (ptr < cur_chars_read) {
         /* working_buffer[ptr] is the start of the current k-mer                */
         /* so current left extension is at working_buffer[ptr+KMER_LENGTH+1]    */
@@ -102,8 +105,6 @@ int main(int argc, char *argv[]){
         ptr += LINE_SIZE;
     }
     
-    // TODO: Maybe test up to this point? How would we do this?
-
 	/** Graph traversal **/
 	traversalTime -= gettime();
 	////////////////////////////////////////////////////////////
@@ -111,9 +112,11 @@ int main(int argc, char *argv[]){
 	// Save your output to "pgen.out"                         //
 	////////////////////////////////////////////////////////////
 	upc_barrier;
+    printf("Creating output file...\n");
     char filename[255];
     sprintf(filename, "pgen%d.out", MYTHREAD);
     outputFile = fopen(filename, "w");
+    printf("Created output file %s\n", filename);
  
     /* Pick start nodes from the startKmersList */
     start_kmer_t *curStartNode = startKmersList; 
@@ -150,6 +153,7 @@ int main(int argc, char *argv[]){
         /* Move to the next start node in the list */
         curStartNode = curStartNode->next;
     }
+    printf("Created contigs!\n");
  
     fclose(outputFile);
 	traversalTime += gettime();
