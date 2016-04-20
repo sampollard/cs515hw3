@@ -5,6 +5,7 @@
 #include <math.h>
 #include <time.h>
 #include <upc.h>
+#include <assert.h>
 
 #include "packingDNAseq.h"
 #include "upc_kmer_hash.h"
@@ -54,9 +55,16 @@ int main(int argc, char *argv[]){
     total_chars_to_read = nKmers * LINE_SIZE;
     working_buffer = (unsigned char*) malloc(total_chars_to_read * sizeof(unsigned char));
     inputFile = fopen(input_UFX_name, "r");
+    if (inputFile == NULL) {
+        perror("When reading inputFile ");
+    }
     // Seek into the correct offset
     fseek(inputFile, MYTHREAD*total_chars_to_read, SEEK_SET);
     cur_chars_read = fread(working_buffer, sizeof(unsigned char), total_chars_to_read , inputFile);
+    if (cur_chars_read != total_chars_to_read) {
+        printf("%d read, expected %d on thread %d\n", cur_chars_read, total_chars_to_read, MYTHREAD);
+        exit(1);
+    }
     fclose(inputFile);
 
 	upc_barrier;
@@ -113,6 +121,7 @@ int main(int argc, char *argv[]){
     char cur_contig[MAXIMUM_CONTIG_SIZE], unpackedKmer[KMER_LENGTH+1];
     int64_t posInContig;
     int64_t contigID = 0;
+    int64_t totBases = 0;
     while (curStartNode != NULL ) {
         /* Need to transfer the current kmer start node from shared to local */
         upc_memget(&cur_kmer, curStartNode->kmerPtr, sizeof(kmer_t));
@@ -142,7 +151,7 @@ int main(int argc, char *argv[]){
         curStartNode = curStartNode->next;
     }
  
-    fclose(serialOutputFile);
+    fclose(outputFile);
 	traversalTime += gettime();
 
 	/** Print timing and output info **/
