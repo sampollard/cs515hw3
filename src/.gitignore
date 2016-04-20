@@ -2,3 +2,4 @@
 *.out
 pgen
 serial
+._*
