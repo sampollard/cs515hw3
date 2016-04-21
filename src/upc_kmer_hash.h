@@ -205,9 +205,10 @@ int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned
    /* Add the contents to the appropriate kmer struct in the heap */
    /* put : private -> shared */
    upc_memput((memory_heap->heap[pos]).kmer, packedKmer, KMER_PACKED_LENGTH * sizeof(char));
-   (memory_heap->heap[pos]).l_ext = left_ext;
-   (memory_heap->heap[pos]).r_ext = right_ext;
+   upc_memput(&((memory_heap->heap[pos]).l_ext), &left_ext, sizeof(char));
+   upc_memput(&((memory_heap->heap[pos]).r_ext), &right_ext, sizeof(char));
    
+   // TODO: Deal with the bucket stuff after the kmers have been added to a heap
    /* Fix the next pointer to point to the appropriate kmer struct */
    (memory_heap->heap[pos]).next = hashtable->table[hashval].head;
    /* Fix the head pointer of the appropriate bucket to point to the current kmer */
