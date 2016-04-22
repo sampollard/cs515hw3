@@ -194,7 +194,7 @@ kmer_t lookup_kmer(hash_table_t *hashtable, const unsigned char *kmer)
 }
 
 /* Adds a kmer and its extensions in the hash table (note that a memory heap should be preallocated. ) */
-int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned char *kmer, char left_ext, char right_ext)
+int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned char *kmer, char left_ext, char right_ext, upc_lock_t *lock)
 {
    /* Pack a k-mer sequence appropriately */
    char packedKmer[KMER_PACKED_LENGTH];
@@ -210,9 +210,11 @@ int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned
    
    // TODO: Deal with the bucket stuff after the kmers have been added to a heap
    /* Fix the next pointer to point to the appropriate kmer struct */
+   upc_lock(lock);
    (memory_heap->heap[pos]).next = hashtable->table[hashval].head;
    /* Fix the head pointer of the appropriate bucket to point to the current kmer */
    hashtable->table[hashval].head = &(memory_heap->heap[pos]);
+   upc_unlock(lock);
    
    /* Increase the heap pointer */
    memory_heap->posInHeap++;

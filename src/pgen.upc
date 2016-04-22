@@ -86,6 +86,7 @@ int main(int argc, char *argv[]){
     start_kmer_t *startKmersList = NULL;
     printf("Creating hash table...\n");
     int startListSz = 0;
+    upc_lock_t *lock = upc_all_lock_alloc(); // All point to just ONE lock
     while (ptr < cur_chars_read) {
         /* working_buffer[ptr] is the start of the current k-mer                */
         /* so current left extension is at working_buffer[ptr+KMER_LENGTH+1]    */
@@ -95,7 +96,7 @@ int main(int argc, char *argv[]){
         right_ext = (char) working_buffer[ptr+KMER_LENGTH+2];
  
         /* Add k-mer to hash table */
-        add_kmer(hashtable, &memory_heap, &working_buffer[ptr], left_ext, right_ext);
+        add_kmer(hashtable, &memory_heap, &working_buffer[ptr], left_ext, right_ext, lock);
  
         /* Create also a list with the "start" kmers: nodes with F as left (backward) extension */
         if (left_ext == 'F') {
