@@ -44,7 +44,7 @@ int main(int argc, char *argv[]){
         printf("Total nKmers = %d\n", nKmers);
     }
 
-    seek_pos = nKmers / THREADS;
+    seek_pos = (nKmers / THREADS) * LINE_SIZE;
     if (MYTHREAD % THREADS == THREADS - 1) {
         // The last thread may need to pick up the stragglers
         // This may give a lot of extra work to the last thread if THREADS is large.
@@ -52,7 +52,7 @@ int main(int argc, char *argv[]){
     } else {
         nKmers /= THREADS;
     }
-    printf("Thread %d reading in %d kmers\n", MYTHREAD, nKmers); // TEST
+    printf("Thread %d reading in %d kmers at seek pos %d\n", MYTHREAD, nKmers, seek_pos); // TEST
     total_chars_to_read = nKmers * LINE_SIZE;
     working_buffer = (unsigned char*) malloc(total_chars_to_read * sizeof(unsigned char));
     inputFile = fopen(input_UFX_name, "r");
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]){
         /* Move to the next k-mer in the input working_buffer */
         ptr += LINE_SIZE;
     } 
-    printf("Thread %d: Start list size = %d\n", MYTHREAD, startListSz);
+    printf("Thread %d: Start list size=%d, lines read=%d\n", MYTHREAD, startListSz, ptr/LINE_SIZE);
     
 	/** Graph traversal **/
 	traversalTime -= gettime();
