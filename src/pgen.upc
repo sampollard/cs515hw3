@@ -97,7 +97,18 @@ int main(int argc, char *argv[]){
  
         /* Add k-mer to hash table */
         add_kmer(hashtable, &memory_heap, &working_buffer[ptr], left_ext, right_ext, lock);
- 
+
+        /* TEST: See if we can re-access the kmer we just added */
+        char unpackedKmer[KMER_LENGTH+1];
+        memcpy(&unpackedKmer, &working_buffer[ptr], KMER_LENGTH);
+        if (startListSz < 2) printf("%d: Trying to add %s\n", MYTHREAD, unpackedKmer);
+        kmer_t testKmer;
+        int64_t heapPos = memory_heap.posInHeap - 1;
+        upc_memget(&testKmer, &memory_heap.heap[heapPos], sizeof(kmer_t));
+        unpackSequence((unsigned char*) &testKmer, (unsigned char*) unpackedKmer, KMER_LENGTH);
+        if (startListSz < 2) printf("%d: heap at pos %d: %s\n", MYTHREAD,heapPos,unpackedKmer);
+        /* TSET */
+
         /* Create also a list with the "start" kmers: nodes with F as left (backward) extension */
         if (left_ext == 'F') {
             addKmerToStartList(&memory_heap, &startKmersList);
@@ -116,7 +127,6 @@ int main(int argc, char *argv[]){
 	// Save your output to "pgen.out"                         //
 	////////////////////////////////////////////////////////////
 	upc_barrier;
-    printf("Creating output file...\n");
     char filename[255];
     sprintf(filename, "pgen%d.out", MYTHREAD);
     outputFile = fopen(filename, "w");
@@ -130,12 +140,16 @@ int main(int argc, char *argv[]){
     int64_t contigID = 0;
     int64_t totBases = 0;
     int startNodeList = 0;
+    printf("%d: Beginning to traverse startKmersList\n", MYTHREAD);
     while (curStartNode != NULL ) {
         startNodeList++;
+        printf("Getting starting kmer %d\n", startNodeList);
         /* Need to transfer the current kmer start node from shared to local */
         upc_memget(&cur_kmer, curStartNode->kmerPtr, sizeof(kmer_t));
         // Get cur_kmer to local memory
-        unpackSequence((unsigned char*) &cur_kmer,  (unsigned char*) unpackedKmer, KMER_LENGTH);
+        unpackSequence((unsigned char*) &cur_kmer, (unsigned char*) unpackedKmer, KMER_LENGTH);
+        printf("startNodeList = %d, unpackedKmer = %s\n", startNodeList, unpackedKmer);
+        fflush(NULL);
         /* Initialize current contig with the seed content */
         memcpy(cur_contig ,unpackedKmer, KMER_LENGTH * sizeof(char));
         posInContig = KMER_LENGTH;

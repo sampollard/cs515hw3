@@ -131,6 +131,7 @@ hash_table_t* upc_create_hash_table(int64_t nEntries, memory_heap_t *memory_heap
    result = (hash_table_t*) malloc(sizeof(hash_table_t));
    result->size = n_buckets;
    // There is only one table spread across all processes
+   // XXX: nEntries is only enough for one thread.
    result->table = (shared bucket_t*) upc_all_alloc(n_buckets, sizeof(bucket_t));
    
    if (result->table == NULL) {
@@ -139,7 +140,8 @@ hash_table_t* upc_create_hash_table(int64_t nEntries, memory_heap_t *memory_heap
    }
    
    // Just as with table, all processes can access the heap
-   memory_heap->heap = (shared kmer_t *) upc_alloc(((nEntries/THREADS)+1) * sizeof(kmer_t));
+   memory_heap->heap = (shared kmer_t *) upc_all_alloc(THREADS,
+        ((nEntries/THREADS)+1)*sizeof(kmer_t));
    if (memory_heap->heap == NULL) {
       fprintf(stderr, "ERROR: Could not allocate memory for the heap!\n");
       exit(1);
@@ -207,14 +209,15 @@ int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned
    upc_memput((memory_heap->heap[pos]).kmer, packedKmer, KMER_PACKED_LENGTH * sizeof(char));
    upc_memput(&((memory_heap->heap[pos]).l_ext), &left_ext, sizeof(char));
    upc_memput(&((memory_heap->heap[pos]).r_ext), &right_ext, sizeof(char));
+   sprintf("%d: Packed kmer = %llu %c %c\n", (unsigned long long int)(memory_heap->heap[pos]).kmer, (memory_heap->heap[pos]).l_ext, (memory_heap->heap[pos]).l_ext);
    
    // TODO: Deal with the bucket stuff after the kmers have been added to a heap
    /* Fix the next pointer to point to the appropriate kmer struct */
-   upc_lock(lock);
+   //upc_lock(lock);
    (memory_heap->heap[pos]).next = hashtable->table[hashval].head;
    /* Fix the head pointer of the appropriate bucket to point to the current kmer */
    hashtable->table[hashval].head = &(memory_heap->heap[pos]);
-   upc_unlock(lock);
+   //upc_unlock(lock);
    
    /* Increase the heap pointer */
    memory_heap->posInHeap++;
