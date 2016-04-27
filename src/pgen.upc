@@ -22,7 +22,7 @@ int main(int argc, char *argv[]){
     /* Local Variables for file IO */
     FILE *inputFile, *outputFile;
     char *input_UFX_name;
-    int64_t nKmers, total_chars_to_read, cur_chars_read;
+    int64_t nKmers, totalKmers, total_chars_to_read, cur_chars_read;
     int64_t seek_pos = 0;
     unsigned char *working_buffer;
     /* Local Variables for Graph Construction */
@@ -38,6 +38,7 @@ int main(int argc, char *argv[]){
     input_UFX_name = argv[1];
     /* Figure out how many lines of the file each thread is responsible for */
     nKmers = getNumKmersInUFX(input_UFX_name);
+    totalKmers = nKmers;
 
     // TEST
     if (MYTHREAD == 0) {
@@ -52,7 +53,8 @@ int main(int argc, char *argv[]){
     } else {
         nKmers /= THREADS;
     }
-    printf("Thread %d reading in %d kmers at seek pos %d\n", MYTHREAD, nKmers, seek_pos); // TEST
+    printf("Thread %d reading in %d kmers at seek pos %d\n",
+            MYTHREAD, nKmers, MYTHREAD*seek_pos); // TEST
     total_chars_to_read = nKmers * LINE_SIZE;
     working_buffer = (unsigned char*) malloc(total_chars_to_read * sizeof(unsigned char));
     inputFile = fopen(input_UFX_name, "r");
@@ -78,7 +80,7 @@ int main(int argc, char *argv[]){
 	///////////////////////////////////////////
     // Collectively create the hash table
     printf("Initializing hash table...\n");
-    hashtable = upc_create_hash_table(nKmers, &memory_heap);
+    hashtable = upc_create_hash_table(totalKmers, &memory_heap);
 	upc_barrier;
 	constrTime += gettime();
     int64_t ptr = 0;
@@ -104,7 +106,7 @@ int main(int argc, char *argv[]){
         if (startListSz < 2) printf("%d: Trying to add %s\n", MYTHREAD, unpackedKmer);
         kmer_t testKmer;
         int64_t heapPos = memory_heap.posInHeap - 1;
-        upc_memget(&testKmer, &memory_heap.heap[heapPos], sizeof(kmer_t));
+        upc_memget(&testKmer, &memory_heap.heap[heapPos].kmer, sizeof(kmer_t));
         unpackSequence((unsigned char*) &testKmer, (unsigned char*) unpackedKmer, KMER_LENGTH);
         if (startListSz < 2) printf("%d: heap at pos %d: %s\n", MYTHREAD,heapPos,unpackedKmer);
         /* TSET */
