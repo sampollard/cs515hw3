@@ -81,16 +81,15 @@ int main(int argc, char *argv[]){
 	// Your code for graph construction here //
 	///////////////////////////////////////////
     // Collectively create the hash table
-    printf("Initializing hash table...\n");
+    // printf("Initializing hash table...\n");
     hashtable = upc_create_hash_table(totalKmers, &memory_heap);
 	upc_barrier;
 	constrTime += gettime();
     int64_t ptr = 0;
     char left_ext, right_ext;
     start_kmer_t *startKmersList = NULL;
-    printf("Creating hash table...\n");
+    // printf("Creating hash table...\n");
     int startListSz = 0;
-    upc_lock_t *lock = upc_all_lock_alloc(); // All point to just ONE lock
     while (ptr < cur_chars_read) {
         /* working_buffer[ptr] is the start of the current k-mer                */
         /* so current left extension is at working_buffer[ptr+KMER_LENGTH+1]    */
@@ -100,7 +99,7 @@ int main(int argc, char *argv[]){
         right_ext = (char) working_buffer[ptr+KMER_LENGTH+2];
  
         /* Add k-mer to hash table */
-        add_kmer(hashtable, &memory_heap, &working_buffer[ptr], left_ext, right_ext, lock);
+        add_kmer(hashtable, &memory_heap, &working_buffer[ptr], left_ext, right_ext);
 
         /* TEST: See if we can re-access the kmer we just added */
         char unpackedKmer[KMER_LENGTH+1];
@@ -134,7 +133,7 @@ int main(int argc, char *argv[]){
     char filename[255];
     sprintf(filename, "pgen%d.out", MYTHREAD);
     outputFile = fopen(filename, "w");
-    printf("Created output file %s\n", filename);
+    // printf("Created output file %s\n", filename);
  
     /* Pick start nodes from the startKmersList */
     start_kmer_t *curStartNode = startKmersList; 
@@ -145,10 +144,10 @@ int main(int argc, char *argv[]){
     int64_t contigID = 0;
     int64_t totBases = 0;
     int startNodeList = 0;
-    printf("%d: Beginning to traverse startKmersList\n", MYTHREAD);
+    // printf("%d: Beginning to traverse startKmersList\n", MYTHREAD);
     while (curStartNode != NULL ) {
         startNodeList++;
-        printf("Getting starting kmer %d\n", startNodeList);
+        // printf("Getting starting kmer %d\n", startNodeList);
         /* Need to transfer the current kmer start node from shared to local */
         upc_memget(&cur_kmer, curStartNode->kmerPtr, sizeof(kmer_t));
         // Get cur_kmer to local memory
@@ -165,15 +164,14 @@ int main(int argc, char *argv[]){
         /* Keep adding bases while not finding a terminal node */
         while (right_ext != 'F') {
            assert(right_ext != 0);
-           printf("%c ", right_ext);
+           // printf("%c ", right_ext);
            cur_contig[posInContig] = right_ext;
            posInContig++;
            /* At position cur_contig[posInContig-KMER_LENGTH] starts the last k-mer in the current contig */
            cur_kmer = lookup_kmer(hashtable, (const unsigned char *) &cur_contig[posInContig-KMER_LENGTH]);
            right_ext = cur_kmer.r_ext;
         }
-        printf("\n");
- 
+        //printf("\n");
         /* Print the contig since we have found the corresponding terminal node */
         cur_contig[posInContig] = '\0';
         fprintf(outputFile,"%s\n", cur_contig);

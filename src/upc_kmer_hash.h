@@ -61,6 +61,7 @@ struct start_kmer_t{
 typedef struct bucket_t bucket_t;
 struct bucket_t{
    shared kmer_t *head;          // Pointer to the first entry of that bucket
+   upc_lock_t *lock;
 };
 
 /* Hash table data structure */
@@ -131,8 +132,12 @@ hash_table_t* upc_create_hash_table(int64_t nEntries, memory_heap_t *memory_heap
    result = (hash_table_t*) malloc(sizeof(hash_table_t));
    result->size = n_buckets;
    // There is only one table spread across all processes
-   // XXX: nEntries is only enough for one thread.
    result->table = (shared bucket_t*) upc_all_alloc(n_buckets, sizeof(bucket_t));
+   // Initialize Locks
+   int64_t pos = 0;
+   upc_forall(pos = 0; pos < n_buckets; pos++; pos) {
+      result->table[pos].lock = upc_global_lock_alloc();
+   }
    
    if (result->table == NULL) {
       fprintf(stderr, "ERROR: Could not allocate memory for the hash table: %lld buckets of %lu bytes\n", n_buckets, sizeof(bucket_t));
@@ -194,7 +199,7 @@ kmer_t lookup_kmer(hash_table_t *hashtable, const unsigned char *kmer)
 }
 
 /* Adds a kmer and its extensions in the hash table (note that a memory heap should be preallocated. ) */
-int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned char *kmer, char left_ext, char right_ext, upc_lock_t *lock)
+int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned char *kmer, char left_ext, char right_ext)
 {
    /* Pack a k-mer sequence appropriately */
    char packedKmer[KMER_PACKED_LENGTH];
@@ -215,12 +220,12 @@ int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned
    
    // TODO: Deal with the bucket stuff after the kmers have been added to a heap
    /* Fix the next pointer to point to the appropriate kmer struct */
-   upc_lock(lock);
+   upc_lock(hashtable->table[hashval].lock);
    (memory_heap->heap[pos]).next = hashtable->table[hashval].head;
    /* Fix the head pointer of the appropriate bucket to point to the current kmer */
    // The contention is at table[hashval]
    hashtable->table[hashval].head = &(memory_heap->heap[pos]);
-   upc_unlock(lock);
+   upc_unlock(hashtable->table[hashval].lock);
    
    /* Increase the heap pointer */
    memory_heap->posInHeap++;
