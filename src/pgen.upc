@@ -29,6 +29,8 @@ int main(int argc, char *argv[]){
     hash_table_t *hashtable;   // The buckets (hashtable->table) are shared
     memory_heap_t memory_heap; // The heap is shared, the posInHeap is local.
 
+    init_LookupTable();
+
 	/** Read input **/
 	upc_barrier;
 	inputTime -= gettime();
@@ -103,12 +105,12 @@ int main(int argc, char *argv[]){
         /* TEST: See if we can re-access the kmer we just added */
         char unpackedKmer[KMER_LENGTH+1];
         memcpy(&unpackedKmer, &working_buffer[ptr], KMER_LENGTH);
-        if (startListSz < 2) printf("%d: Trying to add %s\n", MYTHREAD, unpackedKmer);
+        // if (startListSz < 2) printf("%d: Trying to add %s\n", MYTHREAD, unpackedKmer);
         kmer_t testKmer;
-        int64_t heapPos = memory_heap.posInHeap - 1;
-        upc_memget(&testKmer, &memory_heap.heap[heapPos].kmer, sizeof(kmer_t));
+        int64_t heapPos = memory_heap.posInHeap - 2;
+        upc_memget(&testKmer, &(memory_heap.heap[heapPos]).kmer, KMER_PACKED_LENGTH * sizeof(char));
         unpackSequence((unsigned char*) &testKmer, (unsigned char*) unpackedKmer, KMER_LENGTH);
-        if (startListSz < 2) printf("%d: heap at pos %d: %s\n", MYTHREAD,heapPos,unpackedKmer);
+        // if (startListSz < 2) printf("%d: heap at pos %d: %s\n", MYTHREAD,heapPos,unpackedKmer);
         /* TSET */
 
         /* Create also a list with the "start" kmers: nodes with F as left (backward) extension */
@@ -138,6 +140,7 @@ int main(int argc, char *argv[]){
     start_kmer_t *curStartNode = startKmersList; 
     kmer_t cur_kmer;
     char cur_contig[MAXIMUM_CONTIG_SIZE], unpackedKmer[KMER_LENGTH+1];
+    unpackedKmer[KMER_LENGTH] = '\0';
     int64_t posInContig;
     int64_t contigID = 0;
     int64_t totBases = 0;
@@ -149,9 +152,11 @@ int main(int argc, char *argv[]){
         /* Need to transfer the current kmer start node from shared to local */
         upc_memget(&cur_kmer, curStartNode->kmerPtr, sizeof(kmer_t));
         // Get cur_kmer to local memory
-        unpackSequence((unsigned char*) &cur_kmer, (unsigned char*) unpackedKmer, KMER_LENGTH);
-        printf("startNodeList = %d, unpackedKmer = %s\n", startNodeList, unpackedKmer);
-        fflush(NULL);
+        unpackSequence((unsigned char*) &(cur_kmer.kmer), (unsigned char*) unpackedKmer, KMER_LENGTH);
+        // printf("startNodeList = %d, packedKmer = '%c%c%c%c%c', lr:%c%c, unpackedKmer = '%s'\n", startNodeList,
+        //        cur_kmer.kmer[0],cur_kmer.kmer[1],cur_kmer.kmer[2],cur_kmer.kmer[3],cur_kmer.kmer[4],
+        //        cur_kmer.l_ext, cur_kmer.r_ext,
+        //        unpackedKmer);
         /* Initialize current contig with the seed content */
         memcpy(cur_contig ,unpackedKmer, KMER_LENGTH * sizeof(char));
         posInContig = KMER_LENGTH;
@@ -159,13 +164,15 @@ int main(int argc, char *argv[]){
  
         /* Keep adding bases while not finding a terminal node */
         while (right_ext != 'F') {
+           assert(right_ext != 0);
+           printf("%c ", right_ext);
            cur_contig[posInContig] = right_ext;
            posInContig++;
            /* At position cur_contig[posInContig-KMER_LENGTH] starts the last k-mer in the current contig */
-            // TODO: We need to make sure the cur_kmer_ptr is a shared pointer
            cur_kmer = lookup_kmer(hashtable, (const unsigned char *) &cur_contig[posInContig-KMER_LENGTH]);
            right_ext = cur_kmer.r_ext;
         }
+        printf("\n");
  
         /* Print the contig since we have found the corresponding terminal node */
         cur_contig[posInContig] = '\0';

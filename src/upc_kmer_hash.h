@@ -176,9 +176,7 @@ kmer_t lookup_kmer(hash_table_t *hashtable, const unsigned char *kmer)
    int64_t hashval = hashkmer(hashtable->size, (char*) packedKmer);
    bucket_t cur_bucket;
    kmer_t result;
-   static shared kmer_t *result_ptr;
-   
-   // hashtable->table is a shared object
+   static shared kmer_t *result_ptr; // hashtable->table is a shared object
    cur_bucket = hashtable->table[hashval];
    result_ptr = cur_bucket.head;
    upc_memget(&result, result_ptr, sizeof(kmer_t));
@@ -203,22 +201,26 @@ int add_kmer(hash_table_t *hashtable, memory_heap_t *memory_heap, const unsigned
    packSequence(kmer, (unsigned char*) packedKmer, KMER_LENGTH);
    int64_t hashval = hashkmer(hashtable->size, (char*) packedKmer);
    int64_t pos = memory_heap->posInHeap;
+   //printf("%d: packed = %c%c%c\n", MYTHREAD, packedKmer[0], packedKmer[1], packedKmer[2]);
    
    /* Add the contents to the appropriate kmer struct in the heap */
    /* put : private -> shared */
    upc_memput(&(memory_heap->heap[pos]).kmer, packedKmer, KMER_PACKED_LENGTH * sizeof(char));
    upc_memput(&((memory_heap->heap[pos]).l_ext), &left_ext, sizeof(char));
    upc_memput(&((memory_heap->heap[pos]).r_ext), &right_ext, sizeof(char));
-   // THIS CAUSES A SEGFAULT
-   // sprintf("%d: Packed kmer = %llu %c %c\n", MYTHREAD, (unsigned long long int)(memory_heap->heap[pos]).kmer, (memory_heap->heap[pos]).l_ext, (memory_heap->heap[pos]).l_ext);
+//   printf("%d: Packed kmer = %c%c%c%c%c;%c%c;\n", MYTHREAD,
+//        (memory_heap->heap[pos]).kmer[0], (memory_heap->heap[pos]).kmer[1],
+//        (memory_heap->heap[pos]).kmer[2],(memory_heap->heap[pos]).kmer[3],(memory_heap->heap[pos]).kmer[4],
+//        (memory_heap->heap[pos]).l_ext, (memory_heap->heap[pos]).r_ext);
    
    // TODO: Deal with the bucket stuff after the kmers have been added to a heap
    /* Fix the next pointer to point to the appropriate kmer struct */
-   //upc_lock(lock);
+   upc_lock(lock);
    (memory_heap->heap[pos]).next = hashtable->table[hashval].head;
    /* Fix the head pointer of the appropriate bucket to point to the current kmer */
+   // The contention is at table[hashval]
    hashtable->table[hashval].head = &(memory_heap->heap[pos]);
-   //upc_unlock(lock);
+   upc_unlock(lock);
    
    /* Increase the heap pointer */
    memory_heap->posInHeap++;

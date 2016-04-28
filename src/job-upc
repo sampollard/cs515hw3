@@ -14,11 +14,14 @@ INPUT=test		# Path to your input file
 cd ${PWD}
 
 # Run program
+export GASNET_BACKTRACE=1
 ./serial ${INPUT}
 tacc-upcrun -np $P -shared-heap=1G ./pgen ${INPUT}
 
 # Sort contigs in both output files to compare
 sort serial.out > serial.sorted
+rm pgen.out
+cat pgen*.out >> pgen.out
 sort pgen.out > pgen.sorted
 
 # diff -q <file1> <file2> will print nothing if both files are equal
