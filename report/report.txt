@@ -3,6 +3,7 @@ Submit your report and source codes on Moodle. We need to be able to build and e
 Contributors:
 	Sam Pollard
 	Rory Klein
+	Albert Andrew Spencer
 
 
 Here is the list of items you might show in your report:
