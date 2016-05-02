@@ -21,7 +21,9 @@ tacc-upcrun -np $P -shared-heap=1G ./pgen ${INPUT}
 # Sort contigs in both output files to compare
 sort serial.out > serial.sorted
 rm pgen.out
-cat pgen*.out >> pgen.out
+for X in $(seq 1 $P); do
+    cat pgen$[X-1].out >> pgen.out
+done
 sort pgen.out > pgen.sorted
 
 # diff -q <file1> <file2> will print nothing if both files are equal
