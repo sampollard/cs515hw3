@@ -55,8 +55,8 @@ int main(int argc, char *argv[]){
     } else {
         nKmers /= THREADS;
     }
-    printf("Thread %d reading in %d kmers at seek pos %d\n",
-            MYTHREAD, nKmers, MYTHREAD*seek_pos); // TEST
+    //printf("Thread %d reading in %d kmers at seek pos %d\n",
+    //        MYTHREAD, nKmers, MYTHREAD*seek_pos); // TEST
     total_chars_to_read = nKmers * LINE_SIZE;
     working_buffer = (unsigned char*) malloc(total_chars_to_read * sizeof(unsigned char));
     inputFile = fopen(input_UFX_name, "r");
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]){
         /* Move to the next k-mer in the input working_buffer */
         ptr += LINE_SIZE;
     } 
-    printf("Thread %d: Start list size=%d, lines read=%d\n", MYTHREAD, startListSz, ptr/LINE_SIZE);
+    //printf("Thread %d: Start list size=%d, lines read=%d\n", MYTHREAD, startListSz, ptr/LINE_SIZE);
     
 	/** Graph traversal **/
 	traversalTime -= gettime();
@@ -180,8 +180,8 @@ int main(int argc, char *argv[]){
         /* Move to the next start node in the list */
         curStartNode = curStartNode->next;
     } 
-    printf("Thread %d: From %d startNodes generated %lld contigs with %lld total bases\n",
-            MYTHREAD, startNodeList, contigID, totBases);
+   // printf("Thread %d: From %d startNodes generated %lld contigs with %lld total bases\n",
+   //         MYTHREAD, startNodeList, contigID, totBases);
  
     fclose(outputFile);
 	traversalTime += gettime();

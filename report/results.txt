@@ -1,0 +1,30 @@
+Number of UPC threads: 3
+Input reading time: 0.100539 seconds
+Graph construction time: 0.140734 seconds
+Graph traversal time: 0.534058 seconds
+ 
+Number of UPC threads: 9
+Input reading time: 0.062109 seconds
+Graph construction time: 0.069611 seconds
+Graph traversal time: 0.222576 seconds
+ 
+Number of UPC threads: 16
+Input reading time: 0.046421 seconds
+Graph construction time: 0.057772 seconds
+Graph traversal time: 2.158120 seconds
+ 
+Number of UPC threads: 32
+Input reading time: 0.041869 seconds
+Graph construction time: 0.048754 seconds
+Graph traversal time: 2.638571 seconds
+ 
+Number of UPC threads: 64
+Input reading time: 0.043491 seconds
+Graph construction time: 0.046174 seconds
+Graph traversal time: 1.655352 seconds
+ 
+Number of UPC threads: 128
+Input reading time: 0.057673 seconds
+Graph construction time: 0.046485 seconds
+Graph traversal time: 0.861301 seconds
+ 
