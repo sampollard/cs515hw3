@@ -28,3 +28,12 @@ Input reading time: 0.057673 seconds
 Graph construction time: 0.046485 seconds
 Graph traversal time: 0.861301 seconds
  
+The results but in an easier-to read format:
+Processes input-reading construction traversal total 
+    3.0000    0.1005    0.1407    0.5341    0.7753
+    9.0000    0.0621    0.0691    0.2226    0.3538
+   16.0000    0.0464    0.0578    0.2158    0.3200
+   32.0000    0.0419    0.0488    2.6386    2.7292
+   64.0000    0.0435    0.0462    1.6554    1.7450
+  128.0000    0.0577    0.0465    0.8613    0.9655
+
